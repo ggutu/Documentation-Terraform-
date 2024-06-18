@@ -1,0 +1,92 @@
+Building a Jenkins server using Terraform involves defining the infrastructure as code to automate the provisioning
+ of the Jenkins environment. Below are the general steps to achieve this:
+
+1. Install Terraform:
+   Ensure you have Terraform installed on your local machine. You can download it from the official website and follow the installation instructions for your operating system.
+
+2. Set Up AWS CLI:
+   If you're using AWS as your cloud provider, configure your AWS CLI with the necessary credentials.
+
+3. Create a Terraform Configuration File:
+   Create a new directory for your Terraform configuration and add a file named main.tf. This file will contain the infrastructure definition.
+
+4. Define the AWS Provider:
+   Specify the AWS provider and region in your main.tf file.
+   
+   provider "aws" {
+     region = "us-west-2"  # Replace with your desired region
+   }
+5. Define a VPC (Optional):
+   If you don't have an existing VPC, you can define one.
+	 resource "aws_vpc" "main" {
+     cidr_block = "10.0.0.0/16"
+   }
+   resource "aws_subnet" "main" {
+     vpc_id            = aws_vpc.main.id
+     cidr_block        = "10.0.1.0/24"
+     availability_zone = "us-west-2a"  # Replace with your desired AZ
+   }
+ 6. Define the Security Group:
+
+   Create a security group to allow necessary inbound and outbound traffic.  
+   resource "aws_security_group" "jenkins_sg" {
+     vpc_id = aws_vpc.main.id
+
+     ingress {
+       from_port   = 8080
+       to_port     = 8080
+       protocol    = "tcp"
+       cidr_blocks = ["0.0.0.0/0"]
+     }
+
+     egress {
+       from_port   = 0
+       to_port     = 0
+       protocol    = "-1"
+       cidr_blocks = ["0.0.0.0/0"]
+     }
+   }
+7. Launch an EC2 Instance:
+   Define an EC2 instance to run the Jenkins server.
+   resource "aws_instance" "jenkins" {
+     ami           = "ami-0c55b159cbfafe1f0"  # Replace with your desired AMI
+     instance_type = "t2.micro"
+     subnet_id     = aws_subnet.main.id
+     security_groups = [aws_security_group.jenkins_sg.name]
+
+     tags = {
+       Name = "JenkinsServer"
+     }
+
+     user_data = <<-EOF
+                 #!/bin/bash
+                 sudo yum update -y
+                 sudo amazon-linux-extras install java-openjdk11 -y
+                 wget -O /etc/yum.repos.d/jenkins.repo http://pkg.jenkins.io/redhat-stable/jenkins.repo
+                 rpm --import http://pkg.jenkins.io/redhat-stable/jenkins.io.key
+                 sudo yum install jenkins -y
+                 sudo systemctl start jenkins
+                 sudo systemctl enable jenkins
+                 EOF
+   }
+8. Output Jenkins URL:
+   Optionally, output the Jenkins URL.
+   
+     output "jenkins_url" {
+     value = "http://${aws_instance.jenkins.public_ip}:8080"
+   }
+   
+9. Initialize and Apply Terraform Configuration:
+   Initialize Terraform and apply the configuration.
+   
+   terraform init
+   terraform apply
+  This basic configuration sets up a Jenkins server on an AWS EC2 instance.
+  Customize the instance type, AMI, and other parameters according to your requirements.
+  Make sure your AWS credentials are configured properly and have the necessary permissions to create the resources. 
+===========================
+Make sure to replace:
+- ami-xxxxxxxx with your actual AMI ID.
+- subnet-xxxxxxxx with your actual Subnet ID.
+- sg-xxxxxxxx with your actual Security Group ID.
+ =============================================  
